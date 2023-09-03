@@ -1,3 +1,5 @@
+import time
+
 from selenium.webdriver.chrome.service import Service
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
@@ -39,28 +41,23 @@ def get_elements(by_val, value):
         return driver.find_elements(by_val, value)
 
 
-# hp: "horsepower", lifetime: "vehicleRemainingLife:, fuel: "fuelVolumePerEngine", year: "modelYear"
+# hp: "horsepower", lifetime: "vehicleRemainingLife:, fuel: "fuelVolumePerEngine",
+# year: "modelYear", upgradeYear: "retrofitYear"
 def edit_field(name, val, data):
+    print("editing field: " + name)
     el = get_element(By.ID, name)
-    el.clear()
-    if name == "modelYear":
-        by_vis_text(name, val)
+    if name == "modelYear" or name == "retrofitYear":
+        by_vis_text(name, str(val))
     else:
+        el.clear()
         el.send_keys(str(val))
     data.append(str(val))
+    time.sleep(.2)
 
 
-PATH = "Applications/chromedriver"
-csvName = "dataFromDEQHPandFuel"
-kyle_data = read_csv("cep_spec.csv")
-hp_set = set(kyle_data['Net Power'].tolist())
-hp_float_set = []
-for e in hp_set:
-    if e != '—':
-        hp_float_set.append(round(float(e.split(' ')[0])))
-hp_float_set = sorted(set(hp_float_set))
-print(hp_float_set)
-driver = webdriver.Chrome(service=Service(PATH))
+# Update to path of your driver
+csvName = "test"
+driver = webdriver.Chrome()
 driver.get("https://cfpub.epa.gov/quantifier/index.cfm?action=user.account")
 login = get_element(By.ID, "login")
 pw = get_element(By.ID, "password")
@@ -72,7 +69,7 @@ pw.send_keys(Keys.RETURN)
 buttons = get_elements(By.CLASS_NAME, "gridButton")
 driver.execute_script("arguments[0].click();", buttons[0])
 # Set All Ranges Below
-yearRange = range(2012, 2023, 1000)
+yearRange = range(2012, 2024)
 # Record ranges below, with other info about current scrape
 metadata = "this is a current test"
 # For big tests
@@ -93,6 +90,8 @@ for year in yearRange:
     edit_btn.click()
     # Insert fields to edit below:
     edit_field("modelYear", year, data)
+    edit_field("retrofitYear", year, data)
+    edit_field("vehicleRemainingLife", 5, data)
     # Save
     save = get_element(By.ID, "saveGroupBtn")
     save.click()
@@ -113,7 +112,6 @@ for year in yearRange:
 
 with open(csvName, 'w') as csvfile:
     csvwriter = csv.writer(csvfile)
-    csvwriter.writerow(titles)
     csvwriter.writerows(full_data)
 
 
