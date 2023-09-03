@@ -1,16 +1,14 @@
 import time
-
-from selenium.webdriver.chrome.service import Service
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
-from pandas import *
 import csv
 
 
+# Seperate helper to select option from a drop-down
 def by_vis_text(drp, text):
     drpDown = Select(get_element(By.ID, drp))
     attempts = 0
@@ -23,6 +21,7 @@ def by_vis_text(drp, text):
             print("exception when calling " + text + " on " + drp)
 
 
+# Helper to ensure we try to find element multiple times
 def get_element(by_val, value):
     try:
         elem = WebDriverWait(driver, 30).until(
@@ -32,6 +31,7 @@ def get_element(by_val, value):
         return driver.find_element(by_val, value)
 
 
+# Helper to ensure we try to find elements multiple times
 def get_elements(by_val, value):
     try:
         elem = WebDriverWait(driver, 30).until(
@@ -41,57 +41,92 @@ def get_elements(by_val, value):
         return driver.find_elements(by_val, value)
 
 
-# hp: "horsepower", lifetime: "vehicleRemainingLife:, fuel: "fuelVolumePerEngine",
-# year: "modelYear", upgradeYear: "retrofitYear"
-def edit_field(name, val, data):
-    print("editing field: " + name)
+# Clicks "Get Default Value" for middle options
+def click_defaults():
+    ids = ["defaultFuelVolumeLink", "defaultUsageHrsLink", "defaultHorsepowerLink"]
+    for _id in ids:
+        el = get_element(By.ID, _id).find_elements(By.XPATH, '*')[0]
+        el.click()
+
+
+# Helper function to record an element, set drp to True if element is a drop down
+def record_el(name, drp):
     el = get_element(By.ID, name)
-    if name == "modelYear" or name == "retrofitYear":
+    if drp:
+        return Select(el).first_selected_option.text
+    return el.get_attribute("value")
+
+
+# All elements on page and whether they are drop-downs
+elements = [
+    ["modelYear", True], ["Tier", True], ["Interim_Flg", True],
+    ["fuelType", True], ["fuelVolumePerEngine", False], ["calculatedFuelVolumePerEngine", False],
+    ["usageRate", False], ["horsepower", False], ["aftertreatmentCd", True],
+    ["retrofitYear", True], ["vehicleRemainingLife", False]
+]
+
+
+# Keeps track of all current variables
+def record_state():
+    state = []
+    for el in elements:
+        if el[0] == "aftertreatmentCd" and int(state[-1]) < 25:
+            state.append("N/A")
+        else:
+            state.append(record_el(el[0], el[1]))
+    return state
+
+
+# hp: "horsepower", lifetime: "vehicleRemainingLife:, fuel: "fuelVolumePerEngine",
+# year: "modelYear", upgradeYear: "retrofitYear", After-Treatment Config: "aftertreatmentCd"
+def edit_field(name, val):
+    el = get_element(By.ID, name)
+    if el.tag_name == "select":
         by_vis_text(name, str(val))
     else:
         el.clear()
         el.send_keys(str(val))
-    data.append(str(val))
     time.sleep(.2)
 
 
 # Update to path of your driver
-csvName = "test"
+csvName = "test.csv"
 driver = webdriver.Chrome()
 driver.get("https://cfpub.epa.gov/quantifier/index.cfm?action=user.account")
 login = get_element(By.ID, "login")
 pw = get_element(By.ID, "password")
 login.send_keys("dmaslia@umich.edu")
 pw.send_keys("goofball1")
-
-
 pw.send_keys(Keys.RETURN)
 buttons = get_elements(By.CLASS_NAME, "gridButton")
 driver.execute_script("arguments[0].click();", buttons[0])
-# Set All Ranges Below
-yearRange = range(2012, 2024)
+
+
+# Set all Ranges Below
+yearRange = range(2012, 2015)
 # Record ranges below, with other info about current scrape
 metadata = "this is a current test"
 # For big tests
 upgrades = ["A: Neither SCR nor DPF", "B: SCR Only", "C: DPF Only", "D: Both SCR and DPF"]
-titles = ["fuel", "hp", "tier", "upgrade", "life expectancy", "NOx", "PM2.5", "HC", "CO", "CO2"]
+titles = [el[0] for el in elements]
+titles.extend(["NOx", "PM2.5", "HC", "CO", "CO2"])
 # Master data
 full_data = []
 
-with open(csvName, 'w') as csvfile:
-    csvwriter = csv.writer(csvfile)
-    csvwriter.writerow(metadata)
-
 
 for year in yearRange:
-    data = []
     # Enter edit page
     edit_btn = get_element(By.ID, "editGroupBtn-1")
     edit_btn.click()
+    # Comment out below call if you have set values for Fuel Gallons, Usage Hours, or Horsepower
+    click_defaults()
     # Insert fields to edit below:
-    edit_field("modelYear", year, data)
-    edit_field("retrofitYear", year, data)
-    edit_field("vehicleRemainingLife", 5, data)
+    edit_field("modelYear", 2012)
+    edit_field("retrofitYear", year)
+    edit_field("vehicleRemainingLife", 5)
+    edit_field("aftertreatmentCd", upgrades[2])
+    # Grab all current variable values
+    data = record_state()
     # Save
     save = get_element(By.ID, "saveGroupBtn")
     save.click()
@@ -110,31 +145,7 @@ for year in yearRange:
     back.click()
 
 
-with open(csvName, 'w') as csvfile:
+with open(csvName, 'w', newline='') as csvfile:
     csvwriter = csv.writer(csvfile)
+    csvwriter.writerow(titles)
     csvwriter.writerows(full_data)
-
-
-# SPARE CODE IF WE ARE CHANGE TIER
-#                     if t == 3:
-#                         by_vis_text("Tier", "Tier 3")
-#                         data.append("Tier 3")
-#                         data.append("n/a")
-#                         if u != 0:
-#                             collect = False
-#                     else:
-#                         by_vis_text("Tier", "Tier 4")
-#                         data.append("Tier 4")
-#                         if t == 4:
-#                             by_vis_text("Interim_Flg", "Interim")
-#                             by_vis_text("aftertreatmentCd", upgrades[u])
-#                             data.append(upgrades[u])
-#                         else:
-#                             by_vis_text("Interim_Flg", "Final")
-#                             if u == 0:
-#                                 collect = False
-#                                 by_vis_text("aftertreatmentCd", upgrades[1])
-#                                 data.append(upgrades[1])
-#                             else:
-#                                 by_vis_text("aftertreatmentCd", upgrades[u])
-#                                 data.append(upgrades[u])
