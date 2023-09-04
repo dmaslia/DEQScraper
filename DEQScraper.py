@@ -5,10 +5,20 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
+from selenium.webdriver.chrome.options import Options
 import csv
 
 
-# Seperate helper to select option from a drop-down
+def write_csv(_name, _data, plural):
+    with open(_name, 'a', newline='') as csvfile:
+        csvwriter = csv.writer(csvfile)
+        if plural:
+            csvwriter.writerows(_data)
+        else:
+            csvwriter.writerow(_data)
+
+
+# Separate helper to select option from a drop-down
 def by_vis_text(drp, text):
     drpDown = Select(get_element(By.ID, drp))
     attempts = 0
@@ -70,7 +80,7 @@ elements = [
 def record_state():
     state = []
     for el in elements:
-        if el[0] == "aftertreatmentCd" and int(state[-1]) < 25:
+        if el[0] == "aftertreatmentCd" and float(state[-1].replace(",", '')) < 25:
             state.append("N/A")
         else:
             state.append(record_el(el[0], el[1]))
@@ -90,8 +100,10 @@ def edit_field(name, val):
 
 
 # Update to path of your driver
-csvName = "test.csv"
-driver = webdriver.Chrome()
+csvName = "scr_fuel_vol_4000_9000.csv"
+options = Options()
+options.page_load_strategy = 'eager'
+driver = webdriver.Chrome(options=options)
 driver.get("https://cfpub.epa.gov/quantifier/index.cfm?action=user.account")
 login = get_element(By.ID, "login")
 pw = get_element(By.ID, "password")
@@ -102,29 +114,34 @@ buttons = get_elements(By.CLASS_NAME, "gridButton")
 driver.execute_script("arguments[0].click();", buttons[0])
 
 
+# Batch size to record on csv, higher number: more efficient, lower number: less loss on program crash
+batch_size = 4
 # Set all Ranges Below
-yearRange = range(2012, 2015)
+fuel_vol = range(4000, 9000, 10)
 # Record ranges below, with other info about current scrape
 metadata = "this is a current test"
 # For big tests
 upgrades = ["A: Neither SCR nor DPF", "B: SCR Only", "C: DPF Only", "D: Both SCR and DPF"]
 titles = [el[0] for el in elements]
 titles.extend(["NOx", "PM2.5", "HC", "CO", "CO2"])
-# Master data
-full_data = []
+write_csv(csvName, titles, False)
 
-
-for year in yearRange:
+master_data = []
+for idx, fuel in enumerate(fuel_vol):
+    if not idx % batch_size:
+        write_csv(csvName, master_data, True)
+        master_data = []
     # Enter edit page
     edit_btn = get_element(By.ID, "editGroupBtn-1")
     edit_btn.click()
-    # Comment out below call if you have set values for Fuel Gallons, Usage Hours, or Horsepower
+    # Clicks defaults for elements that have that option
     click_defaults()
     # Insert fields to edit below:
     edit_field("modelYear", 2012)
-    edit_field("retrofitYear", year)
+    edit_field("retrofitYear", 2017)
+    edit_field("fuelVolumePerEngine", fuel)
     edit_field("vehicleRemainingLife", 5)
-    edit_field("aftertreatmentCd", upgrades[2])
+    edit_field("aftertreatmentCd", upgrades[1])
     # Grab all current variable values
     data = record_state()
     # Save
@@ -139,13 +156,7 @@ for year in yearRange:
         data.append(cell.text)
     data.pop()
     # Add to master data
-    full_data.append(data)
+    master_data.append(data)
     # Go back
     back = get_element(By.XPATH, "//input[@title='Return to the Update Project page']")
     back.click()
-
-
-with open(csvName, 'w', newline='') as csvfile:
-    csvwriter = csv.writer(csvfile)
-    csvwriter.writerow(titles)
-    csvwriter.writerows(full_data)
