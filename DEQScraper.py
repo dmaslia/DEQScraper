@@ -100,10 +100,10 @@ def edit_field(name, val):
 
 
 # Update to path of your driver
-csvName = "scr_fuel_vol_4000_9000.csv"
-options = Options()
-options.page_load_strategy = 'eager'
-driver = webdriver.Chrome(options=options)
+csvName = "t_3_hp_75_175.csv"
+# options = Options()
+# options.page_load_strategy = 'eager'
+driver = webdriver.Chrome()
 driver.get("https://cfpub.epa.gov/quantifier/index.cfm?action=user.account")
 login = get_element(By.ID, "login")
 pw = get_element(By.ID, "password")
@@ -117,7 +117,7 @@ driver.execute_script("arguments[0].click();", buttons[0])
 # Batch size to record on csv, higher number: more efficient, lower number: less loss on program crash
 batch_size = 4
 # Set all Ranges Below
-fuel_vol = range(4000, 9000, 10)
+hp_range = range(75, 175, 5)
 # Record ranges below, with other info about current scrape
 metadata = "this is a current test"
 # For big tests
@@ -127,7 +127,7 @@ titles.extend(["NOx", "PM2.5", "HC", "CO", "CO2"])
 write_csv(csvName, titles, False)
 
 master_data = []
-for idx, fuel in enumerate(fuel_vol):
+for idx, hp in enumerate(hp_range):
     if not idx % batch_size:
         write_csv(csvName, master_data, True)
         master_data = []
@@ -139,9 +139,9 @@ for idx, fuel in enumerate(fuel_vol):
     # Insert fields to edit below:
     edit_field("modelYear", 2012)
     edit_field("retrofitYear", 2017)
-    edit_field("fuelVolumePerEngine", fuel)
+    edit_field("horsepower", hp)
     edit_field("vehicleRemainingLife", 5)
-    edit_field("aftertreatmentCd", upgrades[1])
+    # edit_field("aftertreatmentCd", upgrades[2])
     # Grab all current variable values
     data = record_state()
     # Save
@@ -160,3 +160,4 @@ for idx, fuel in enumerate(fuel_vol):
     # Go back
     back = get_element(By.XPATH, "//input[@title='Return to the Update Project page']")
     back.click()
+write_csv(csvName, master_data, True)
