@@ -100,7 +100,7 @@ def edit_field(name, val):
 
 
 # Update to path of your driver
-csvName = "t_3_hp_75_175.csv"
+csvName = "dozer_scr_fuel_5000_10000.csv"
 # options = Options()
 # options.page_load_strategy = 'eager'
 driver = webdriver.Chrome()
@@ -117,7 +117,7 @@ driver.execute_script("arguments[0].click();", buttons[0])
 # Batch size to record on csv, higher number: more efficient, lower number: less loss on program crash
 batch_size = 4
 # Set all Ranges Below
-hp_range = range(75, 175, 5)
+fuel_range = range(5000, 10000, 100)
 # Record ranges below, with other info about current scrape
 metadata = "this is a current test"
 # For big tests
@@ -127,7 +127,7 @@ titles.extend(["NOx", "PM2.5", "HC", "CO", "CO2"])
 write_csv(csvName, titles, False)
 
 master_data = []
-for idx, hp in enumerate(hp_range):
+for idx, fuel in enumerate(fuel_range):
     if not idx % batch_size:
         write_csv(csvName, master_data, True)
         master_data = []
@@ -139,9 +139,9 @@ for idx, hp in enumerate(hp_range):
     # Insert fields to edit below:
     edit_field("modelYear", 2012)
     edit_field("retrofitYear", 2017)
-    edit_field("horsepower", hp)
+    edit_field("fuelVolumePerEngine", fuel)
     edit_field("vehicleRemainingLife", 5)
-    # edit_field("aftertreatmentCd", upgrades[2])
+    edit_field("aftertreatmentCd", upgrades[1])
     # Grab all current variable values
     data = record_state()
     # Save
